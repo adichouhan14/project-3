@@ -16,6 +16,8 @@ import dash_core_components as dcc
 import plotly.graph_objects as go
 import plotly.express as px
 
+from dash.exceptions import PreventUpdate
+
 #global variable
 app=dash.Dash()
 
@@ -68,33 +70,46 @@ def open_browser():
 #Layout of your page
 def create_app_ui():
     #Designing web page
-    main_layout=html.Div(
-        [
-        html.H1(id='main_title', children='Terrorism Analysis with Insights'),
+    main_layout=html.Div([
+    html.H1(id='main_title', children='Terrorism Analysis with Insights'),
+    dcc.Tabs(id='Tabs',value='tab-1',children=[
+        dcc.Tab(label='Map tool', id='Map-tool',value='tab-1',children=[
+            dcc.Tabs(id='subtabs',value='tab-1',children=[
+                dcc.Tab(label='World Map tool',id='World',value='tab-1',children=[
+                   
+                    html.Div(html.Div(id='my-hidden')),
+                    dcc.Dropdown(id='month', options=month_list, placeholder='Select Month',multi=True),
+                    dcc.Dropdown(id='date',  placeholder='Select Date',multi=True),
+                    dcc.Dropdown(id='region-dropdown', options=region_list, placeholder='Select Region',multi=True),
+                    dcc.Dropdown(id='country-dropdown',  placeholder='Select Country',multi=True),
+                    dcc.Dropdown(id='state-dropdown',  placeholder='Select State',multi=True),
+                    dcc.Dropdown(id='city-dropdown',  placeholder='Select City',multi=True),
+                    dcc.Dropdown(id='attack-dropdown', options=attack_list, placeholder='Select Attack',multi=True),
+                                
+                    html.H5('Select the Year', id='year_title'),
+                            
+                    dcc.RangeSlider(
+                        id='year-slider',
+                        min=min(year_list),
+                        max=max(year_list),
+                        value=[min(year_list),max(year_list)], #default value of slider
+                        marks=year_dict   # this is the interval for slider
+                        ),
+                    html.Br(),
+                    html.Div(id='graph-object',children=["World Map is loading"])
+                    ]),
+                dcc.Tab(label='India Map tool',id='India',value='tab-2',children=[html.Div()])
+                    ])]),
 
-        dcc.Dropdown(id='month', options=month_list, placeholder='Select Month'),
-        dcc.Dropdown(id='date',  placeholder='Select Date'),
-        dcc.Dropdown(id='region-dropdown', options=region_list, placeholder='Select Region'),
-        dcc.Dropdown(id='country-dropdown',  placeholder='Select Country'),
-        dcc.Dropdown(id='state-dropdown',  placeholder='Select State'),
-        dcc.Dropdown(id='city-dropdown',  placeholder='Select City'),
-        dcc.Dropdown(id='attack-dropdown', options=attack_list, placeholder='Select Attack'),
-            
-        html.H5('Select the Year', id='year_title'),
-		
-        dcc.RangeSlider(
-            id='year-slider',
-            min=min(year_list),
-            max=max(year_list),
-            value=[min(year_list),max(year_list)], #default value of slider
-            marks=year_dict   # this is the interval for slider
-            ),
-        html.Br(),
-        dcc.Graph(id='graph-object'),
-        ])
-    
+            dcc.Tab(label='Chart Tool', id='chart-tool',value='Chart',children=[
+                dcc.Tabs(id='sub-tabs2',value='tab-2',children=[
+                    dcc.Tab(label='World Chart tool',id='World-chart',value='tab-1'),
+                    dcc.Tab(label='India Chart tool',id='India-chart',value='tab-2')]),
+                    html.Div()
+                    ])
+            ])
+    ])
     return main_layout
-	
 
 #Callback of your page
 
@@ -109,8 +124,8 @@ def create_app_ui():
         Input('city-dropdown','value'),
         Input('attack-dropdown','value'),
         Input('year-slider','value'),
-    ]
-)
+    ])
+
 def update_map(month,date,region,country,state,city,attack,year):
 
     print("Data Type of month value = " , str(type(month)))
@@ -137,48 +152,67 @@ def update_map(month,date,region,country,state,city,attack,year):
     print("Data Type of year value = " , str(type(year)))
     print("Data of year value = " , year)
     
-    #df1=df[year[0]<=df['iyear']<=year[1]]
-    
-    #df1=df[year[0]<=df['iyear'] and df['iyear']<=year[1]]
-    
-    df1=df
-    if month!=None:
-        df1=df1[df1['imonth']==month]
-   
-    if date!=None:
-        df1=df1[df1['iday']==date]
-    
-    if region!=None:
-        df1=df1[df1['region_txt']==region]
-        
-    if country!=None:
-        df1=df1[df1['country_txt']==country]
-    
-    if state!=None:
-        df1=df1[df1['provstate']==state]
-    
-    if city!=None:
-        df1=df1[df1['city']==city]
-    
-    if attack!=None:
-        df1=df1[df1['attacktype1_txt']==attack]
-        
-    
-    #print(df1.head())
-    
-    
-    figure=go.Figure()
-    figure=px.scatter_mapbox(df1,
-                             lat='latitude',
-                             lon='longitude',
-                             hover_data=["region_txt", "country_txt", "provstate","city", "attacktype1_txt","nkill","iyear"],
-                             zoom=1)
+   # year filter
+    year_range = range(year[0],year[1]+1)
+    new_df=df[df['iyear'].isin(year_range)]
 
-    figure.update_layout(mapbox_style='open-street-map',autosize=True,margin=dict(l=0, r=0, t=25, b=20))
+   #month filter
+    if month==[] or month is None:
+        pass
+    else:
+        if date==[] or date is None:
+            new_df=new_df[new_df['imonth'].isin(month)]
+        else:
+            new_df=new_df[new_df['imonth'].isin(month) & (new_df['iday'].isin(date))]
+
+    if Tab=='tab-1':
+        if subtabs=='tab-2':
+            raise PreventUpdate
+        else:
+
+            #region , country, state, city filter
+            if region ==[] or region is None:
+                pass
+            else:
+                if country==[] or country is None:
+                    new_df=new_df[ (new_df['region_txt'].isin(region)) & (new_df['country_txt'].isin(country))]
+
+                else:
+                    if city==[] or city is None:
+                        new_df=new_df[ (new_df['region_txt'].isin(region)) & (new_df['country_txt'].isin(country)) & (new_df['provstate'].isin(state))]
+                    else:
+                        new_df=new_df[ (new_df['region_txt'].isin(region)) & (new_df['country_txt'].isin(country)) & (new_df['provstate'].isin(state)) &  (new_df['city'].isin(city))]
+
+            if attack==[] or attack is None:
+                pass
+            else:
+                new_df=new_df[new_df['attacktype1_txt'].isin(attack)]
+
+            #You should always set the figure for blank since this callback
+            #is called once when it is drawing for the first time
+            figure=go.Figure()
+            if new_df.shape[0]:
+                pass
+            else:
+                new_df=pd.DataFrame(columns=[
+                    'iyear','imonth','iday','country_txt','region_txt','provstate','city','latitude','longitude','attacktype1_txt','nkill'])
+
+                new_df.loc[0]=[0,0,0,None,None,None,None,None,None,None,None]
+
+            figure=px.scatter_mapbox(df1,
+                                     lat='latitude',
+                                     lon='longitude',
+                                     color='attacktype1_txt',
+                                     hover_name='city',
+                                     hover_data=["region_txt", "country_txt", "provstate","city", "attacktype1_txt","nkill","iyear"],
+                                     zoom=1.5)
+
+            figure.update_layout(mapbox_style='open-street-map',autosize=True,margin=dict(l=25, r=25, t=0, b=20))
     
+            return dcc.Graph(figure=figure)
+    else:
+        raise PreventUpdate
     
-    
-    return figure
 
 
 @app.callback(
